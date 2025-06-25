@@ -22,9 +22,11 @@ def init_db():
         ''')
         conn.commit()
 
-@app.before_first_request
+@app.before_request
 def setup():
-    init_db()
+    if not hasattr(app, 'db_initialized'):
+        init_db()
+        app.db_initialized = True
 
 @app.route('/send', methods=['POST'])
 def send_message():
