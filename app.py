@@ -52,5 +52,18 @@ def get_messages():
         messages = [{'id': row[0], 'username': row[1], 'message': row[2], 'timestamp': row[3]} for row in rows]
     return jsonify({'messages': messages})
 
+@app.route('/unread')
+def unread_count():
+    username = request.args.get('user')
+    if not username:
+        return jsonify({'unread_count': 0})
+    # Example: count messages newer than a timestamp you store per user
+    # For demo, just return total messages (replace with real logic)
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM messages WHERE username != ?', (username,))
+        count = c.fetchone()[0]
+    return jsonify({'unread_count': count})
+
 if __name__ == '__main__':
     app.run(debug=True) 
