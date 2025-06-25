@@ -35,9 +35,8 @@ def init_db():
     conn.close()
     logger.info("Database initialized or already exists.")
 
-@app.before_first_request
-def startup():
-    init_db()
+# Initialize DB once immediately on startup
+init_db()
 
 @app.route('/send', methods=['POST'])
 def send_message():
