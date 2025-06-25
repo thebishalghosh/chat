@@ -22,12 +22,22 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
+    # Create messages table
     cur.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
             message TEXT NOT NULL,
             timestamp TEXT NOT NULL
+        );
+    ''')
+    # Create user_message_reads table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS user_message_reads (
+            user_id TEXT NOT NULL,
+            message_id INTEGER NOT NULL,
+            PRIMARY KEY (user_id, message_id),
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
         );
     ''')
     conn.commit()
@@ -80,11 +90,40 @@ def unread_count():
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT COUNT(*) FROM messages WHERE username != %s', (username,))
+    cur.execute('''
+        SELECT COUNT(*) FROM messages m
+        WHERE m.username != %s
+        AND NOT EXISTS (
+            SELECT 1 FROM user_message_reads r
+            WHERE r.user_id = %s AND r.message_id = m.id
+        )
+    ''', (username, username))
     count = cur.fetchone()['count']
     cur.close()
     conn.close()
     return jsonify({'unread_count': count})
+
+@app.route('/mark_read', methods=['POST'])
+def mark_read():
+    data = request.get_json()
+    user = data.get('user')
+    message_ids = data.get('message_ids', [])
+
+    if not user or not message_ids:
+        return jsonify({'success': False, 'error': 'User and message_ids required'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    for msg_id in message_ids:
+        cur.execute('''
+            INSERT INTO user_message_reads (user_id, message_id)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+        ''', (user, msg_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     app.run(debug=True)
