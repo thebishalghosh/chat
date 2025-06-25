@@ -4,9 +4,14 @@ from datetime import datetime
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Use the DATABASE_URL environment variable (from Render)
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -28,8 +33,9 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+    logger.info("Database initialized or already exists.")
 
-@app.before_serving
+@app.before_first_request
 def startup():
     init_db()
 
@@ -39,6 +45,7 @@ def send_message():
     username = data.get('username')
     message = data.get('message')
     if not username or not message:
+        logger.warning("Missing username or message in request")
         return jsonify({'success': False, 'error': 'Username and message required'}), 400
     timestamp = datetime.utcnow().isoformat()
 
@@ -53,6 +60,7 @@ def send_message():
     cur.close()
     conn.close()
 
+    logger.info(f"Message inserted with id {msg_id} from user {username}")
     return jsonify({'success': True, 'message': {'id': msg_id, 'username': username, 'message': message, 'timestamp': timestamp}})
 
 @app.route('/messages', methods=['GET'])
